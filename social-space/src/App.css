@@ -76,19 +76,6 @@ Note: Beware of modifying this element as it can break the animations - you shou
   margin-bottom: 10px;
 }
 
-/* Improved styling for links */
-.bm-item a {
-  text-decoration: none;
-  color: #ffffff; /* Change to your desired color */
-  font-size: 1.2em;
-  font-weight: bold;
-  transition: color 0.3s ease-in-out;
-}
-
-.bm-item a:hover {
-  color: #0c55d2; /* Change to your desired hover color */
-}
-
 /* Styling for the title */
 .bm-title {
   font-family: 'YourCoolFont', sans-serif; /* Replace 'YourCoolFont' with the desired font name */
@@ -119,17 +106,6 @@ Note: Beware of modifying this element as it can break the animations - you shou
   height: 100%; /* Ensure the container takes up the full height of the Menu */
 }
 
-.invite-button {
-  background-color: #4caf50;
-  color: white;
-  padding: 10px 20px;
-  font-size: 16px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  width: 100%;
-}
-
 .menu-button-container {
   display: flex;
   justify-content: center;
@@ -138,12 +114,6 @@ Note: Beware of modifying this element as it can break the animations - you shou
 .menu-content {
   flex: 1;
 }
-
-.invite-button:hover {
-  background-color: #45a049;
-}
-
-
 
 .App-header {
   background-color: #282c34;
@@ -167,24 +137,50 @@ Note: Beware of modifying this element as it can break the animations - you shou
     transform: rotate(360deg);
   }
 }
-/* Add this to your existing CSS or create a new one */
-.search{
+.graph-mode .MuiToggleButton-root {
+  color: white;
+  border-color: #b8b7ad;
+}
+
+.graph-mode .MuiToggleButton-root.Mui-selected,
+.graph-mode .MuiToggleButton-root.Mui-selected:hover {
+  color: #1f2330;
+  background-color: #d3d3d3;
+}
+
+.hashtag-search {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem;
+  font-size: 0.9em;
+}
+
+.hashtag-search-controls {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  /* margin: 10px; */
-  /* width: 100%; */
+  gap: 0.25rem;
 }
 
-input {
-  width: 100%;
+.hashtag-search-controls input {
+  flex: 1;
+  min-width: 0;
 }
 
-.search-input {
-  /* padding: 8px; */
-  /* width: 100%; */
-  border: 1px solid #ccc;
-  border-radius: 5px;
+.hashtag-search p {
+  margin: 0;
+}
+
+.tag-shortcut {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: white;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tag-shortcut:hover {
+  color: #afd5ff;
 }
 
 .grayed-background {

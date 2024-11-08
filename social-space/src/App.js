@@ -2,12 +2,14 @@ import { useState } from 'react';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { slide as Menu } from 'react-burger-menu';
-import Search from './components/search';
+import Search from './components/Search';
 import TheMap from './components/TheMap';
 import WelcomePopup from './components/WelcomePopup';
 import generalGraph from './graph_data_minified.json';
 import userGraph from './graph_user_data_minified.json';
 import './App.css';
+
+const SAMPLE_HASHTAGS = ['BookTok', 'Pickleball', 'Cooking'];
 
 function App() {
   const [graphMode, setGraphMode] = useState('general');
@@ -24,8 +26,18 @@ function App() {
     setSelectedNode(null);
   };
 
-  const inviteFriend = () => {
-    alert('Invite your friend!');
+  const selectHashtag = (query) => {
+    const hashtag = query.trim().replace(/^#/, '');
+    const lowercaseHashtag = hashtag.toLowerCase();
+    const node = graphData.nodes.find(node => node.id === hashtag)
+      ?? graphData.nodes.find(node => node.id.toLowerCase() === lowercaseHashtag);
+    if (!node) {
+      return false;
+    }
+
+    setSelectedNode(node);
+    setMenuOpen(false);
+    return true;
   };
 
   return (
@@ -35,6 +47,7 @@ function App() {
         <div>
           <h2>Social Space (WIP)</h2>
           <ToggleButtonGroup
+            className="graph-mode"
             aria-label="Graph view"
             exclusive
             value={graphMode}
@@ -43,27 +56,18 @@ function App() {
             <ToggleButton value="general">General</ToggleButton>
             <ToggleButton value="user">User</ToggleButton>
           </ToggleButtonGroup>
-          <Search />
+          <Search key={graphMode} onSearch={selectHashtag} />
 
-          <p><b>My Top Tags</b></p>
-          <hr />
-          <ol>
-            <li><a onClick={() => setMenuOpen(false)} href="/#">#BookTok</a></li>
-            <li><a onClick={() => setMenuOpen(false)} href="/#">#Pickleball</a></li>
-            <li><a onClick={() => setMenuOpen(false)} href="/#">#Cooking</a></li>
-          </ol>
-        </div>
-        <div>
-          <p><b>My Toks</b></p>
-          <hr />
-          <ol>
-            <li><a onClick={() => setMenuOpen(false)} href="/#">BookTok</a></li>
-            <li><a onClick={() => setMenuOpen(false)} href="/#">CookTok</a></li>
-            <li><a onClick={() => setMenuOpen(false)} href="/#">PickleballTok</a></li>
-          </ol>
-        </div>
-        <div className='bottom'>
-          <button className="invite-button" onClick={inviteFriend}>Invite Friend</button>
+          <h3>Sample hashtags</h3>
+          <ul>
+            {SAMPLE_HASHTAGS.map(tag => (
+              <li key={tag}>
+                <button className="tag-shortcut" type="button" onClick={() => selectHashtag(tag)}>
+                  #{tag}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </Menu>
       <TheMap
