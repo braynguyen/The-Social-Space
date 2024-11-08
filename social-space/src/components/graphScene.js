@@ -19,6 +19,8 @@ import {
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const FALLBACK_COLOR = '#ffffaa';
+const MIN_RADIUS_RATIO = 0.0015;
+const MAX_RADIUS_RATIO = 0.056;
 
 const pointVertexShader = `
   attribute float diameter;
@@ -46,8 +48,8 @@ const pointFragmentShader = `
   }
 `;
 
-export function nodeRadius(node) {
-  return 4 * Math.cbrt(node.val || 1);
+function nodeWeight({ val }) {
+  return Number.isFinite(val) ? Math.max(0, val) : 0;
 }
 
 function isolatedPosition(index, count, radius) {
@@ -69,6 +71,18 @@ export function createGraphScene({ nodes, links }) {
 
   const connectedNodes = nodes.filter(node => node.position);
   const isolatedNodes = nodes.filter(node => !node.position);
+  const layoutRadius = connectedNodes.reduce(
+    (max, node) => Math.max(max, Math.hypot(...node.position)),
+    100,
+  );
+  const maxWeight = nodes.reduce((max, node) => Math.max(max, nodeWeight(node)), 0) || 1;
+
+  // Scale each view independently so both weight ranges are visible.
+  const getNodeRadius = node => {
+    const fraction = Math.sqrt(nodeWeight(node) / maxWeight);
+    return layoutRadius * (MIN_RADIUS_RATIO + fraction * (MAX_RADIUS_RATIO - MIN_RADIUS_RATIO));
+  };
+
   const positions = new Map();
   const color = new Color();
   const transform = new Object3D();
@@ -76,12 +90,12 @@ export function createGraphScene({ nodes, links }) {
   const nodeGeometry = new IcosahedronGeometry(1, 1);
   const nodeMaterial = new MeshLambertMaterial();
   const nodeMesh = new InstancedMesh(nodeGeometry, nodeMaterial, connectedNodes.length);
-  let connectedRadius = 100;
+  let connectedRadius = layoutRadius;
 
   connectedNodes.forEach((node, index) => {
     positions.set(node.id, node.position);
     transform.position.fromArray(node.position);
-    transform.scale.setScalar(nodeRadius(node));
+    transform.scale.setScalar(getNodeRadius(node));
     transform.updateMatrix();
 
     nodeMesh.setMatrixAt(index, transform.matrix);
@@ -99,8 +113,8 @@ export function createGraphScene({ nodes, links }) {
   let maxPointRadius = 0;
 
   isolatedNodes.forEach((node, index) => {
-    const position = isolatedPosition(index, isolatedNodes.length, connectedRadius);
-    const size = nodeRadius(node);
+    const position = isolatedPosition(index, isolatedNodes.length, layoutRadius);
+    const size = getNodeRadius(node);
     positions.set(node.id, position);
     pointPositions.set(position, index * 3);
     color.set(node.color ?? FALLBACK_COLOR).toArray(pointColors, index * 3);
@@ -146,6 +160,7 @@ export function createGraphScene({ nodes, links }) {
     scene,
     positions,
     radius,
+    getNodeRadius,
     setPixelHeight(height) {
       pointMaterial.uniforms.viewportHeight.value = height;
     },
@@ -153,7 +168,7 @@ export function createGraphScene({ nodes, links }) {
       raycaster.params.Points.threshold = maxPointRadius;
       const hit = raycaster.intersectObjects([nodeMesh, pointCloud]).find(intersection =>
         intersection.object === nodeMesh
-        || intersection.distanceToRay <= nodeRadius(isolatedNodes[intersection.index]),
+        || intersection.distanceToRay <= getNodeRadius(isolatedNodes[intersection.index]),
       );
       if (!hit) {
         return null;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PerspectiveCamera, Raycaster, Vector2, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createGraphScene, nodeRadius } from './graphScene';
+import { createGraphScene } from './graphScene';
 
 export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
   const canvasRef = useRef(null);
@@ -69,6 +69,7 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       camera,
       controls,
       positions: graph.positions,
+      getNodeRadius: graph.getNodeRadius,
       pickNode(clientX, clientY) {
         const bounds = canvas.getBoundingClientRect();
         pointer.set(
@@ -105,7 +106,8 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     const { camera, controls } = graph;
     const direction = camera.position.clone().sub(controls.target).normalize();
     controls.target.fromArray(position);
-    camera.position.copy(controls.target).addScaledVector(direction, Math.max(40, 3 * nodeRadius(selectedNode)));
+    const distance = Math.max(40, 3 * graph.getNodeRadius(selectedNode));
+    camera.position.copy(controls.target).addScaledVector(direction, distance);
     controls.update();
   }, [selectedNode]);
 
