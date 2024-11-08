@@ -12,7 +12,7 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
   const pointerStart = useRef(null);
   const hoverTimer = useRef(null);
   const [renderFailed, setRenderFailed] = useState(false);
-  const [showUnlinked, setShowUnlinked] = useState(false);
+  const [showUnlinked, setShowUnlinked] = useState(true);
   const unlinkedCount = useMemo(
     () => graphData.nodes.reduce((count, node) => count + Number(!node.position), 0),
     [graphData],
