@@ -5,8 +5,8 @@ import { createNodeSizer } from '../src/graphSizing.mjs';
 const source = new URL('../src/', import.meta.url);
 const output = new URL('generated/', source);
 
-const MIN_NODE_GAP = 180;
-const LINK_GAP = 300;
+const MIN_NODE_GAP = 320;
+const LINK_GAP = 500;
 
 function layOutGraph(nodes, links) {
   // d3 mutates nodes and edges, so only pass the layout nodes and copies of the links.
@@ -16,7 +16,7 @@ function layOutGraph(nodes, links) {
   const simulation = forceSimulation(nodes, 3)
     .stop()
     .force('link', linkForce)
-    .force('charge', forceManyBody().strength(-1400).distanceMax(4500))
+    .force('charge', forceManyBody().strength(-2500).distanceMax(7200))
     .force('contain', forceRadial(0).strength(0.02))
     .force('center', forceCenter())
     .force('separate', forceCollide(node => node.radius + MIN_NODE_GAP / 2).iterations(2))
@@ -27,6 +27,8 @@ function layOutGraph(nodes, links) {
 
   return new Map(nodes.map(({ id, x, y, z }) => [id, [x, y, z].map(Math.round)]));
 }
+
+const cooccurrences = JSON.parse(await readFile(new URL('graph_cooccurrences.json', source), 'utf8'));
 
 const snapshots = await Promise.all([
   ['general', 'graph_data_minified.json'],
@@ -50,6 +52,15 @@ const layouts = new Map();
 
 for (const { mode, graph } of snapshots) {
   const endpoints = new Set(graph.links.flatMap(({ source, target }) => [source, target]));
+  const nodeIds = new Set(graph.nodes.map(node => node.id));
+
+  for (const link of cooccurrences) {
+    if (nodeIds.has(link.source) && !endpoints.has(link.source) && endpoints.has(link.target)) {
+      graph.links.push(link);
+      endpoints.add(link.source);
+    }
+  }
+
   const connectedIds = graph.nodes.filter(node => endpoints.has(node.id)).map(node => node.id);
   const topology = JSON.stringify([connectedIds, graph.links.map(({ source, target }) => [source, target])]);
   const positions = layouts.get(topology) ?? layOutGraph(
