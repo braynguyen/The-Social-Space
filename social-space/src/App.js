@@ -7,8 +7,8 @@ import WelcomePopup from './components/WelcomePopup';
 import './App.css';
 
 const GRAPH_LOADERS = {
-  general: () => import(/* webpackChunkName: "graph-general" */ './graph_data_minified.json'),
-  user: () => import(/* webpackChunkName: "graph-user" */ './graph_user_data_minified.json'),
+  general: () => import(/* webpackChunkName: "graph-general" */ './generated/general.json'),
+  user: () => import(/* webpackChunkName: "graph-user" */ './generated/user.json'),
 };
 
 const SAMPLE_HASHTAGS = ['BookTok', 'Pickleball', 'Cooking'];

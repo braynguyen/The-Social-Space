@@ -1,14 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import App from './App';
 
-jest.mock('./graph_data_minified.json', () => ({
+jest.mock('./generated/general.json', () => ({
   nodes: [
     {
       id: 'booktok',
       name: '#booktok',
-      x: 0,
-      y: 0,
-      z: 0,
       video_links: ['https://www.tiktok.com/@reader/video/123456789'],
     },
     { id: 'BookTok', name: '#BookTok' },
@@ -19,7 +16,7 @@ jest.mock('./graph_data_minified.json', () => ({
 
 const mockLoadUserGraph = jest.fn();
 
-jest.mock('./graph_user_data_minified.json', () => {
+jest.mock('./generated/user.json', () => {
   mockLoadUserGraph();
   return {
     nodes: [{ id: 'pickleball', name: '#pickleball' }],
@@ -27,24 +24,16 @@ jest.mock('./graph_user_data_minified.json', () => {
   };
 });
 
-const mockCameraPosition = jest.fn();
-
-jest.mock('react-force-graph-3d', () => {
-  const { forwardRef, useImperativeHandle } = require('react');
-
-  return forwardRef(function Graph({ graphData, onNodeClick }, ref) {
-    useImperativeHandle(ref, () => ({
-      d3Force: () => ({ strength: () => {} }),
-      cameraPosition: mockCameraPosition,
-    }));
-
+jest.mock('./components/GraphCanvas', () => ({
+  __esModule: true,
+  default: function GraphCanvas({ graphData, onSelectNode }) {
     return graphData.nodes.map(node => (
-      <button key={node.id} onClick={() => onNodeClick(node)}>
+      <button key={node.id} onClick={() => onSelectNode?.(node)}>
         Select {node.name}
       </button>
     ));
-  });
-});
+  },
+}));
 
 async function openApp() {
   render(<App />);
@@ -79,11 +68,6 @@ test('opens an isolated video player and handles tags with no video', async () =
   expect(screen.getByTitle('TikTok video for #booktok')).toHaveAttribute(
     'src',
     'https://www.tiktok.com/player/v1/123456789',
-  );
-  expect(mockCameraPosition).toHaveBeenLastCalledWith(
-    { x: 0, y: 0, z: 40 },
-    expect.objectContaining({ id: 'booktok' }),
-    3000,
   );
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByTitle('TikTok video for #booktok')).not.toBeInTheDocument();

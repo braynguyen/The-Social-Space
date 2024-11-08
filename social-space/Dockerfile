@@ -8,6 +8,7 @@ RUN npm ci
 
 COPY public ./public
 COPY src ./src
+COPY scripts ./scripts
 RUN npm run build
 RUN npm install -g serve@14.2.8
 
