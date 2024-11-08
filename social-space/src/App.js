@@ -1,89 +1,47 @@
-import './App.css';
-import './components/TheMap';
-// import Button from '@mui/joy/Button';
-import ToggleButton from '@mui/material/ToggleButton'; // Correct import statement
-
+import { useState } from 'react';
+import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import TheMap from './components/TheMap';
-import { useState, useEffect } from 'react';
 import { slide as Menu } from 'react-burger-menu';
-import Search from './components/search'; // Import the Search component
-import graphDataMinified from './graph_data_minified.json';
-import graphUserDataMinified from './graph_user_data_minified.json';
-import PopUp from './components/PopPup';
-
+import Search from './components/search';
+import TheMap from './components/TheMap';
+import WelcomePopup from './components/WelcomePopup';
+import generalGraph from './graph_data_minified.json';
+import userGraph from './graph_user_data_minified.json';
+import './App.css';
 
 function App() {
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphMode, setGraphMode] = useState('general');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [contentMode, toggleMode] = useState(true); // can be content:true or user:false
+  const [selectedNode, setSelectedNode] = useState(null);
+  const graphData = graphMode === 'general' ? generalGraph : userGraph;
 
-  useEffect(() => {
-    const fetchGraphData = async () => {
-      try {
-        // console.log("fetching");
-        // var response = '';
-        // if (contentMode) {
-        //   response = await fetch('http://localhost:5000/api/graph-data');
-        //   console.log('fetching general data');
-        // } else {
-        //   response = await fetch('http://localhost:5000/api/graph-user-data');
-        //   console.log('fetching user data');
-        // }
+  const handleGraphModeChange = (event, nextMode) => {
+    if (nextMode === null) {
+      return;
+    }
 
-        // if (!response.ok) {
-        //   throw new Error(`HTTP error! status: ${response.status}`);
-        // }
-        // const data = await response.json();
-        // console.log(data);
-        // console.log(graphDataMinified)
-        if (contentMode) {
-          setGraphData(graphDataMinified);
-        } else {
-          setGraphData(graphUserDataMinified);
-        }
-      
-      } catch (error) {
-        console.error("Could not fetch graph data:", error);
-      }
-    };
-
-    console.log("contentMode changed:", contentMode); // Debugging statement
-
-    fetchGraphData();
-  }, [contentMode]);
-
-
-
-  const inviteFriend = () => {
-    // Add your logic for inviting friends here
-    alert("Invite your friend!");
+    setGraphMode(nextMode);
+    setSelectedNode(null);
   };
 
-
+  const inviteFriend = () => {
+    alert('Invite your friend!');
+  };
 
   return (
     <div className="App">
-      <PopUp />
+      <WelcomePopup />
       <Menu isOpen={menuOpen} width={250} right onStateChange={({ isOpen }) => setMenuOpen(isOpen)}>
-        {/* Add your menu items here */}
         <div>
           <h2>Social Space (WIP)</h2>
           <ToggleButtonGroup
+            aria-label="Graph view"
             exclusive
-            onChange={(event, newValue) => {
-              if (newValue !== null) {
-                console.log('change mode');
-                toggleMode(!contentMode);
-              }
-            }}
+            value={graphMode}
+            onChange={handleGraphModeChange}
           >
-            <ToggleButton value="General" style={contentMode ? { backgroundColor: '#d3d3d3' } : {}}>
-              General
-            </ToggleButton>
-            <ToggleButton value="User" style={!contentMode ? { backgroundColor: '#d3d3d3' } : {}}>
-              User
-            </ToggleButton>
+            <ToggleButton value="general">General</ToggleButton>
+            <ToggleButton value="user">User</ToggleButton>
           </ToggleButtonGroup>
           <Search />
 
@@ -106,13 +64,12 @@ function App() {
         </div>
         <div className='bottom'>
           <button className="invite-button" onClick={inviteFriend}>Invite Friend</button>
-
         </div>
       </Menu>
       <TheMap
         graphData={graphData}
-        linkDistance={link => link.distance}
-        zIndex={1}
+        selectedNode={selectedNode}
+        onSelectNode={setSelectedNode}
       />
     </div>
   );

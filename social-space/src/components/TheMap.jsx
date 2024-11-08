@@ -1,100 +1,69 @@
-import { useState, useEffect, useRef } from 'react';
-import { ForceGraph3D } from 'react-force-graph';
-// import * as THREE from 'three'; // Import the 'three' library
+import { useEffect, useRef } from 'react';
+import ForceGraph3D from 'react-force-graph-3d';
 
+const TIKTOK_VIDEO_URL = /^https:\/\/www\.tiktok\.com\/@[^/?#]+\/video\/(\d+)\/?(?:[?#].*)?$/;
 
-// Corrected the function component definition and destructuring props
-export default function TheMap({ graphData }) {
-    const [selectedNode, setSelectedNode] = useState(null); // State to hold the selected node
-    const [embed, setEmbed] = useState(null); // State to store the TikTok embed
-    // const [searchedNode, setSearchedNode] = useState(null); // for search node for later
+export default function TheMap({ graphData, selectedNode, onSelectNode }) {
+  const graphRef = useRef(null);
 
-    // refs
-    const fgRef = useRef(); // Reference to the ForceGraph3D component
+  useEffect(() => {
+    graphRef.current.d3Force('charge').strength(-1250);
+  }, []);
 
-    useEffect(() => {
-        if (fgRef.current) {
-          // Increase the charge strength to repel nodes
-          fgRef.current.d3Force('charge').strength(-1250); // Experiment with the value
-        }
-      }, []);
-
-
-    // Handler for node click events
-    const handleNodeClick = node => {
-        setSelectedNode(node); // Update state with the clicked node's data
-        handleNodeZoom(node);
-    };
-
-    // Function to close the popup
-    const handleClosePopup = () => {
-        setSelectedNode(null); // Clear the selected node to hide the popup
-    };
-
-    const handleNodeZoom = node => {
-        // Aim at node from outside it
-        const distance = 40;
-        const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-
-        fgRef.current.cameraPosition(
-            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
-            node, // lookAt ({ x, y, z })
-            3000  // ms transition duration
-        );
+  useEffect(() => {
+    if (!selectedNode) {
+      return;
     }
 
+    const { x, y, z } = selectedNode;
+    const distance = Math.hypot(x, y, z);
+    if (!Number.isFinite(distance)) {
+      return;
+    }
 
-    useEffect(() => {
-        const fetchEmbed = async () => {
-            try {
-                const res = await fetch('https://www.tiktok.com/oembed?url=' + selectedNode.video_links[0]);
-                const data = await res.json();
-                setEmbed(data.html);
-                console.log(data.html);
-                console.log(data);
-            } catch (error) {
-                console.error('Error fetching TikTok embed:', error);
-                setEmbed(null);
-            }
-        };
+    const offset = 40;
+    const scale = 1 + offset / (distance || 1);
+    const position = distance === 0
+      ? { x, y, z: offset }
+      : { x: x * scale, y: y * scale, z: z * scale };
 
-        if (selectedNode) {
-            fetchEmbed();
-        }
+    graphRef.current.cameraPosition(position, selectedNode, 3000);
+  }, [selectedNode]);
 
-    }, [selectedNode]);
+  const videoUrl = selectedNode?.video_links?.find(url => TIKTOK_VIDEO_URL.test(url));
+  const videoId = videoUrl?.match(TIKTOK_VIDEO_URL)[1];
 
-    return (
-        <>
-            <ForceGraph3D
-                ref={fgRef}
-                graphData={graphData}
-                onNodeClick={handleNodeClick}
-                enableNodeDrag={false}
-                showNavInfo={true}
-                linkOpacity={0.05}
-                nodeOpacity={0.85}
-            />
+  return (
+    <>
+      <ForceGraph3D
+        ref={graphRef}
+        graphData={graphData}
+        onNodeClick={onSelectNode}
+        enableNodeDrag={false}
+        linkOpacity={0.05}
+        nodeOpacity={0.85}
+      />
 
-            {selectedNode && (
-                <div style={{
-                    position: 'absolute',
-                    top: '20%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: 'white',
-                    padding: '20px',
-                    zIndex: 100,
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                    color: 'black'
-                }}>
-                    <div dangerouslySetInnerHTML={{ __html: embed }}></div>
-
-                    <button onClick={handleClosePopup}>Close</button>
-                </div>
-            )}
-        </>
-    );
+      {selectedNode && (
+        <section className="video-preview" aria-labelledby="video-preview-title">
+          <div className="video-preview-header">
+            <h2 id="video-preview-title">{selectedNode.name}</h2>
+            <button type="button" onClick={() => onSelectNode(null)}>Close</button>
+          </div>
+          {videoId ? (
+            <>
+              <iframe
+                title={`TikTok video for ${selectedNode.name}`}
+                src={`https://www.tiktok.com/player/v1/${videoId}`}
+                allowFullScreen
+              />
+              <a href={videoUrl} target="_blank" rel="noreferrer">Watch on TikTok</a>
+            </>
+          ) : (
+            <p>No video preview available.</p>
+          )}
+        </section>
+      )}
+    </>
+  );
 }

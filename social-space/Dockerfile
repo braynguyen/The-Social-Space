@@ -1,16 +1,15 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /react-docker
 
-COPY . .
+COPY package.json package-lock.json ./
+RUN npm ci
 
-RUN npm install
-RUN npm install -g serve
+COPY public ./public
+COPY src ./src
 RUN npm run build
-
-ENV HOST=0.0.0.0
-
-CMD ["serve", "-s", "build"]
+RUN npm install -g serve@14.2.8
 
 EXPOSE 3000
+CMD ["serve", "-s", "build", "-l", "tcp://0.0.0.0:3000"]

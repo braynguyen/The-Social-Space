@@ -248,3 +248,40 @@ input {
 .info-card button:hover {
   background-color: #348338; /* Darker green color on hover */
 }
+.video-preview {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  box-sizing: border-box;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  background: white;
+  color: black;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.video-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.video-preview-header h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.video-preview iframe {
+  display: block;
+  width: 100%;
+  height: min(32rem, 65vh);
+  margin-bottom: 0.5rem;
+  border: 0;
+}
