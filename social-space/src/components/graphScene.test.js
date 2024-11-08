@@ -1,12 +1,13 @@
 import { Matrix4, Raycaster, Vector3 } from 'three';
 import { createGraphScene } from './graphScene';
 
-test('batches the full graph and picks both linked and unlinked hashtags', () => {
-  const linked = { id: 'books', position: [-20, 0, 0], val: 1 };
-  const neighbor = { id: 'reading', position: [20, 0, 0], val: 1 };
+test('picks linked and visible unlinked hashtags from the batched graph', () => {
+  const linked = { id: 'books', position: [0, -600, 0], val: 1 };
+  const neighbor = { id: 'reading', position: [0, 600, 0], val: 1 };
   const isolated = { id: 'cooking', val: 1 };
+  const otherIsolated = { id: 'gardening', val: 1 };
   const graph = createGraphScene({
-    nodes: [linked, neighbor, isolated],
+    nodes: [linked, neighbor, isolated, otherIsolated],
     links: [{ source: linked.id, target: neighbor.id }],
   });
 
@@ -15,17 +16,39 @@ test('batches the full graph and picks both linked and unlinked hashtags', () =>
     const points = graph.scene.children.find(object => object.isPoints);
     const edges = graph.scene.children.find(object => object.isLineSegments);
     expect(mesh.count).toBe(2);
-    expect(points.geometry.getAttribute('position').count).toBe(1);
+    expect(points.geometry.getAttribute('position').count).toBe(2);
     expect(Array.from(edges.geometry.getAttribute('position').array)).toEqual([
       ...linked.position, ...neighbor.position,
     ]);
 
     const ray = new Raycaster(new Vector3(), new Vector3(0, 0, -1));
-    for (const node of [linked, isolated]) {
+    const pickAt = node => {
       ray.ray.origin.fromArray(graph.positions.get(node.id));
-      ray.ray.origin.z += 20;
-      expect(graph.pickNode(ray)).toBe(node);
-    }
+      ray.ray.origin.z += 800;
+      return graph.pickNode(ray);
+    };
+
+    expect(points.visible).toBe(false);
+    expect(pickAt(linked)).toBe(linked);
+    expect(pickAt(isolated)).toBeNull();
+
+    graph.setFocusedNode(isolated);
+    expect(points.geometry.drawRange.count).toBe(1);
+    expect(pickAt(isolated)).toBe(isolated);
+    expect(pickAt(otherIsolated)).toBeNull();
+
+    graph.setShowUnlinked(true);
+    expect(points.geometry.drawRange.count).toBe(2);
+    expect(pickAt(otherIsolated)).toBe(otherIsolated);
+
+    graph.setShowUnlinked(false);
+    expect(points.geometry.drawRange.count).toBe(1);
+    expect(pickAt(isolated)).toBe(isolated);
+    expect(pickAt(otherIsolated)).toBeNull();
+
+    graph.setFocusedNode(null);
+    expect(points.visible).toBe(false);
+    expect(pickAt(isolated)).toBeNull();
   } finally {
     graph.dispose();
   }

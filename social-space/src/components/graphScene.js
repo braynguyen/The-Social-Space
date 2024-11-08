@@ -16,11 +16,11 @@ import {
   Sphere,
   Vector3,
 } from 'three';
+import { createNodeSizer } from '../graphSizing.mjs';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const FALLBACK_COLOR = '#ffffaa';
-const MIN_RADIUS_RATIO = 0.0015;
-const MAX_RADIUS_RATIO = 0.056;
+const UNLINKED_RADIUS_SCALE = 0.55;
 
 const pointVertexShader = `
   attribute float diameter;
@@ -42,21 +42,17 @@ const pointFragmentShader = `
     vec2 offset = 2.0 * gl_PointCoord - 1.0;
     float radiusSquared = dot(offset, offset);
     if (radiusSquared > 1.0) discard;
-    float shade = mix(0.6, 1.0, sqrt(1.0 - radiusSquared));
+    float shade = mix(0.38, 0.75, sqrt(1.0 - radiusSquared));
     gl_FragColor = vec4(pointColor * shade, 1.0);
     #include <colorspace_fragment>
   }
 `;
 
-function nodeWeight({ val }) {
-  return Number.isFinite(val) ? Math.max(0, val) : 0;
-}
-
 function isolatedPosition(index, count, radius) {
   const height = 1 - (2 * index + 1) / count;
   const ring = Math.sqrt(1 - height * height);
   const angle = index * GOLDEN_ANGLE;
-  const distance = radius * (1 + (index % 7) * 0.035);
+  const distance = radius * (0.82 + (index % 7) * 0.03);
 
   return [
     distance * ring * Math.cos(angle),
@@ -71,17 +67,20 @@ export function createGraphScene({ nodes, links }) {
 
   const connectedNodes = nodes.filter(node => node.position);
   const isolatedNodes = nodes.filter(node => !node.position);
+
+  // Spread the background points by position independently of snapshot ordering.
+  let seed = 1;
+  for (let index = isolatedNodes.length - 1; index > 0; index--) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const other = Math.floor(seed / 2 ** 32 * (index + 1));
+    [isolatedNodes[index], isolatedNodes[other]] = [isolatedNodes[other], isolatedNodes[index]];
+  }
   const layoutRadius = connectedNodes.reduce(
     (max, node) => Math.max(max, Math.hypot(...node.position)),
     100,
   );
-  const maxWeight = nodes.reduce((max, node) => Math.max(max, nodeWeight(node)), 0) || 1;
-
-  // Scale each view independently so both weight ranges are visible.
-  const getNodeRadius = node => {
-    const fraction = Math.sqrt(nodeWeight(node) / maxWeight);
-    return layoutRadius * (MIN_RADIUS_RATIO + fraction * (MAX_RADIUS_RATIO - MIN_RADIUS_RATIO));
-  };
+  const radiusForWeight = createNodeSizer(nodes);
+  const getNodeRadius = node => radiusForWeight(node) * (node.position ? 1 : UNLINKED_RADIUS_SCALE);
 
   const positions = new Map();
   const color = new Color();
@@ -136,6 +135,17 @@ export function createGraphScene({ nodes, links }) {
     fragmentShader: pointFragmentShader,
   });
   const pointCloud = new Points(pointGeometry, pointMaterial);
+  const pickTargets = [nodeMesh, pointCloud];
+  let showUnlinked = connectedNodes.length === 0;
+  let focusedPointIndex = -1;
+
+  const updatePointVisibility = () => {
+    const start = showUnlinked ? 0 : Math.max(focusedPointIndex, 0);
+    const count = showUnlinked ? isolatedNodes.length : Number(focusedPointIndex !== -1);
+    pointGeometry.setDrawRange(start, count);
+    pointCloud.visible = count > 0;
+  };
+  updatePointVisibility();
 
   const vertices = new Float32Array(links.length * 6);
   links.forEach(({ source, target }, index) => {
@@ -164,9 +174,20 @@ export function createGraphScene({ nodes, links }) {
     setPixelHeight(height) {
       pointMaterial.uniforms.viewportHeight.value = height;
     },
+    setShowUnlinked(visible) {
+      showUnlinked = visible || connectedNodes.length === 0;
+      updatePointVisibility();
+    },
+    setFocusedNode(node) {
+      focusedPointIndex = node && !node.position ? isolatedNodes.findIndex(({ id }) => id === node.id) : -1;
+      updatePointVisibility();
+    },
     pickNode(raycaster) {
       raycaster.params.Points.threshold = maxPointRadius;
-      const hit = raycaster.intersectObjects([nodeMesh, pointCloud]).find(intersection =>
+      const hits = pointCloud.visible
+        ? raycaster.intersectObjects(pickTargets)
+        : raycaster.intersectObject(nodeMesh);
+      const hit = hits.find(intersection =>
         intersection.object === nodeMesh
         || intersection.distanceToRay <= getNodeRadius(isolatedNodes[intersection.index]),
       );

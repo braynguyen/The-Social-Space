@@ -77,6 +77,27 @@
   white-space: nowrap;
 }
 
+.graph-outliers {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #3a4154;
+  border-radius: 5px;
+  background: #10111f;
+  color: #e0e4ee;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.graph-outliers input {
+  margin: 0;
+}
+
 .graph-navigation {
   position: absolute;
   bottom: 0.25rem;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PerspectiveCamera, Raycaster, Vector2, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { positionGraphMarker } from './graphMarker';
@@ -12,6 +12,11 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
   const pointerStart = useRef(null);
   const hoverTimer = useRef(null);
   const [renderFailed, setRenderFailed] = useState(false);
+  const [showUnlinked, setShowUnlinked] = useState(false);
+  const unlinkedCount = useMemo(
+    () => graphData.nodes.reduce((count, node) => count + Number(!node.position), 0),
+    [graphData],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -98,7 +103,13 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     graphRef.current = {
       focus(node) {
         focused = markerFor(node);
-        updateMarkers();
+        graph.setFocusedNode(node);
+        requestDraw();
+      },
+      setShowUnlinked(visible) {
+        graph.setShowUnlinked(visible);
+        hovered = null;
+        requestDraw();
       },
       hover(node) {
         if (hovered?.id !== node?.id) {
@@ -133,6 +144,10 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       renderer.dispose();
     };
   }, [graphData]);
+
+  useEffect(() => {
+    graphRef.current?.setShowUnlinked(showUnlinked);
+  }, [graphData, showUnlinked]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -206,6 +221,16 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       <div className="graph-marker" ref={hoverMarkerRef} hidden>
         <span className="graph-marker-label" role="tooltip" />
       </div>
+      {!renderFailed && unlinkedCount > 0 && unlinkedCount < graphData.nodes.length && (
+        <label className="graph-outliers">
+          <input
+            type="checkbox"
+            checked={showUnlinked}
+            onChange={event => setShowUnlinked(event.target.checked)}
+          />
+          Show {unlinkedCount.toLocaleString()} unlinked hashtags
+        </label>
+      )}
       {renderFailed ? (
         <p className="graph-load-status" role="status">
           3D rendering is unavailable. You can still search hashtags.
