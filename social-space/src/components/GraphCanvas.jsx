@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { PerspectiveCamera, Raycaster, Vector2, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { positionGraphMarker } from './graphMarker';
 import { createGraphScene } from './graphScene';
 
 export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
   const canvasRef = useRef(null);
   const graphRef = useRef(null);
+  const focusMarkerRef = useRef(null);
+  const hoverMarkerRef = useRef(null);
   const pointerStart = useRef(null);
   const hoverTimer = useRef(null);
   const [renderFailed, setRenderFailed] = useState(false);
@@ -31,12 +34,26 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     controls.minDistance = 2;
     controls.maxDistance = graph.radius * 20;
 
+    const focusElement = focusMarkerRef.current;
+    const hoverElement = hoverMarkerRef.current;
+    let focused = null;
+    let hovered = null;
+    let width = 1;
+    let height = 1;
     let frame = null;
+
+    const updateMarkers = () => {
+      const hoverMarker = hovered?.id === focused?.id ? null : hovered;
+      positionGraphMarker(focusElement, focused, camera, width, height);
+      positionGraphMarker(hoverElement, hoverMarker, camera, width, height);
+      canvas.style.cursor = hovered ? 'pointer' : '';
+    };
     const requestDraw = () => {
       if (frame === null) {
         frame = requestAnimationFrame(() => {
           frame = null;
           renderer.render(graph.scene, camera);
+          updateMarkers();
         });
       }
     };
@@ -48,8 +65,8 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     };
 
     const resize = () => {
-      const width = Math.max(canvas.clientWidth, 1);
-      const height = Math.max(canvas.clientHeight, 1);
+      width = Math.max(canvas.clientWidth, 1);
+      height = Math.max(canvas.clientHeight, 1);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
@@ -61,7 +78,17 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     camera.position.set(0, 0, fitDistance() * 1.08);
     controls.maxDistance = Math.max(controls.maxDistance, camera.position.z);
     controls.update();
-    controls.addEventListener('change', requestDraw);
+    controls.addEventListener('change', () => {
+      hovered = null;
+      requestDraw();
+    });
+
+    const markerFor = node => node && {
+      id: node.id,
+      name: node.name,
+      position: graph.positions.get(node.id),
+      radius: graph.getNodeRadius(node),
+    };
 
     const raycaster = new Raycaster();
     const pointer = new Vector2();
@@ -70,6 +97,16 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       controls,
       positions: graph.positions,
       getNodeRadius: graph.getNodeRadius,
+      focus(node) {
+        focused = markerFor(node);
+        updateMarkers();
+      },
+      hover(node) {
+        if (hovered?.id !== node?.id) {
+          hovered = markerFor(node);
+          updateMarkers();
+        }
+      },
       pickNode(clientX, clientY) {
         const bounds = canvas.getBoundingClientRect();
         pointer.set(
@@ -89,7 +126,9 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       observer.disconnect();
       cancelAnimationFrame(frame);
       clearTimeout(hoverTimer.current);
-      canvas.title = '';
+      focusElement.hidden = true;
+      hoverElement.hidden = true;
+      canvas.style.cursor = '';
       controls.dispose();
       graph.dispose();
       renderer.dispose();
@@ -109,36 +148,55 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     const distance = Math.max(40, 3 * graph.getNodeRadius(selectedNode));
     camera.position.copy(controls.target).addScaledVector(direction, distance);
     controls.update();
+    graph.focus(selectedNode);
   }, [selectedNode]);
+
+  useEffect(() => {
+    if (!onSelectNode) {
+      clearTimeout(hoverTimer.current);
+      graphRef.current?.hover(null);
+      graphRef.current?.focus(null);
+    }
+  }, [onSelectNode]);
 
   const clearHover = () => {
     clearTimeout(hoverTimer.current);
-    canvasRef.current.title = '';
+    graphRef.current?.hover(null);
   };
 
   const handlePointerMove = ({ clientX, clientY, buttons }) => {
-    clearHover();
+    clearTimeout(hoverTimer.current);
     if (buttons || !onSelectNode) {
+      graphRef.current?.hover(null);
       return;
     }
 
     hoverTimer.current = setTimeout(() => {
-      const node = graphRef.current?.pickNode(clientX, clientY);
-      canvasRef.current.title = node?.name ?? '';
-    }, 100);
+      const graph = graphRef.current;
+      if (graph) {
+        graph.hover(graph.pickNode(clientX, clientY));
+      }
+    }, 65);
+  };
+
+  const handlePointerDown = ({ clientX, clientY }) => {
+    clearHover();
+    pointerStart.current = { x: clientX, y: clientY };
   };
 
   const handlePointerUp = ({ button, clientX, clientY }) => {
     const start = pointerStart.current;
     pointerStart.current = null;
-    if (!onSelectNode || !start || button !== 0 || Math.hypot(clientX - start.x, clientY - start.y) > 5) {
+    const graph = graphRef.current;
+    if (!onSelectNode || !graph || !start || button !== 0 || Math.hypot(clientX - start.x, clientY - start.y) > 5) {
       return;
     }
 
-    const node = graphRef.current?.pickNode(clientX, clientY);
-    if (node) {
-      onSelectNode(node);
+    const node = graph.pickNode(clientX, clientY);
+    if (!node) {
+      graph.focus(null);
     }
+    onSelectNode(node);
   };
 
   return (
@@ -147,12 +205,18 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
         ref={canvasRef}
         aria-label="3D hashtag graph"
         tabIndex={0}
-        onPointerDown={({ clientX, clientY }) => { pointerStart.current = { x: clientX, y: clientY }; }}
+        onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={() => { pointerStart.current = null; }}
         onPointerMove={handlePointerMove}
         onPointerLeave={clearHover}
       />
+      <div className="graph-marker graph-marker--focus" ref={focusMarkerRef} hidden>
+        <span className="graph-marker-label" role="status" />
+      </div>
+      <div className="graph-marker" ref={hoverMarkerRef} hidden>
+        <span className="graph-marker-label" role="tooltip" />
+      </div>
       {renderFailed ? (
         <p className="graph-load-status" role="status">
           3D rendering is unavailable. You can still search hashtags.

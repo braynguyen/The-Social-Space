@@ -5,6 +5,7 @@
 
 .graph-load-status {
   position: fixed;
+  z-index: 3;
   inset: 0;
   display: grid;
   place-content: center;
@@ -17,6 +18,7 @@
   position: relative;
   height: 100vh;
   height: 100dvh;
+  overflow: hidden;
 }
 
 .graph-canvas canvas {
@@ -28,6 +30,51 @@
 
 .graph-canvas canvas:active {
   cursor: grabbing;
+}
+
+.graph-marker {
+  --marker-color: #fff;
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.graph-marker--focus {
+  --marker-color: #ffe66d;
+}
+
+.graph-marker::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(2 * var(--ring-radius));
+  height: calc(2 * var(--ring-radius));
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  border: 2px solid var(--marker-color);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #000011, 0 0 0 1px #000011 inset;
+  content: '';
+}
+
+.graph-marker-label {
+  position: absolute;
+  max-width: min(220px, calc(100vw - 16px));
+  width: max-content;
+  overflow: hidden;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--marker-color);
+  border-radius: 5px;
+  background: #10111f;
+  color: var(--marker-color);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .graph-navigation {
