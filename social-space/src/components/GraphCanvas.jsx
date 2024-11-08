@@ -83,20 +83,19 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       requestDraw();
     });
 
-    const markerFor = node => node && {
-      id: node.id,
-      name: node.name,
-      position: graph.positions.get(node.id),
-      radius: graph.getNodeRadius(node),
+    const markerFor = node => {
+      const position = node && graph.positions.get(node.id);
+      return position ? {
+        id: node.id,
+        name: node.name,
+        position,
+        radius: graph.getNodeRadius(node),
+      } : null;
     };
 
     const raycaster = new Raycaster();
     const pointer = new Vector2();
     graphRef.current = {
-      camera,
-      controls,
-      positions: graph.positions,
-      getNodeRadius: graph.getNodeRadius,
       focus(node) {
         focused = markerFor(node);
         updateMarkers();
@@ -136,20 +135,10 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
   }, [graphData]);
 
   useEffect(() => {
-    const graph = graphRef.current;
-    const position = graph?.positions.get(selectedNode?.id);
-    if (!position) {
-      return;
+    if (selectedNode) {
+      graphRef.current?.focus(selectedNode);
     }
-
-    const { camera, controls } = graph;
-    const direction = camera.position.clone().sub(controls.target).normalize();
-    controls.target.fromArray(position);
-    const distance = Math.max(40, 3 * graph.getNodeRadius(selectedNode));
-    camera.position.copy(controls.target).addScaledVector(direction, distance);
-    controls.update();
-    graph.focus(selectedNode);
-  }, [selectedNode]);
+  }, [graphData, selectedNode]);
 
   useEffect(() => {
     if (!onSelectNode) {
