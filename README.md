@@ -25,6 +25,24 @@ The opacity of social media algorithms has created a digital environment where u
 - **Backend:** Flask serves as the connective tissue linking the front end to the backend.
 - **Clustering:** Utilizing NetworkX and GPT integration to cluster similar ideas and enhance user experience.
 
+## Run locally
+
+Run both services with Docker Compose:
+
+```sh
+docker compose up --build
+```
+
+Open [The Social Space](http://localhost:3000). The Flask API serves the [general graph](http://localhost:5000/api/graph-data) and the [sample user graph](http://localhost:5000/api/graph-user-data).
+
+The React app also runs on its own using the bundled graph snapshots:
+
+```sh
+cd social-space
+npm ci
+npm start
+```
+
 ## Impact and Future Enhancements
 
 "Social Space" aims to democratize algorithmic knowledge, empowering users to make informed decisions about their digital consumption. Our future plans include extending the platform to various social media algorithms and incorporating additional features to further enhance user control.
