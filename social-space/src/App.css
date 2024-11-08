@@ -1,5 +1,16 @@
 .App {
-  /* text-align: center; */
+  min-height: 100vh;
+  background-color: black;
+}
+
+.graph-load-status {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background-color: black;
+  color: white;
 }
 
 .App-logo {
@@ -179,7 +190,12 @@ Note: Beware of modifying this element as it can break the animations - you shou
   cursor: pointer;
 }
 
-.tag-shortcut:hover {
+.tag-shortcut:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.tag-shortcut:enabled:hover {
   color: #afd5ff;
 }
 

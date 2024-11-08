@@ -17,10 +17,15 @@ jest.mock('./graph_data_minified.json', () => ({
   links: [],
 }));
 
-jest.mock('./graph_user_data_minified.json', () => ({
-  nodes: [{ id: 'pickleball', name: '#pickleball' }],
-  links: [],
-}));
+const mockLoadUserGraph = jest.fn();
+
+jest.mock('./graph_user_data_minified.json', () => {
+  mockLoadUserGraph();
+  return {
+    nodes: [{ id: 'pickleball', name: '#pickleball' }],
+    links: [],
+  };
+});
 
 const mockCameraPosition = jest.fn();
 
@@ -41,31 +46,34 @@ jest.mock('react-force-graph-3d', () => {
   });
 });
 
-function openApp() {
+async function openApp() {
   render(<App />);
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  await screen.findByRole('button', { name: 'Select #booktok' });
 }
 
 test('switches graph views and clears the previous selection', async () => {
-  openApp();
+  await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Select #booktok' }));
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
 
   const general = await screen.findByRole('button', { name: 'General' });
   const user = screen.getByRole('button', { name: 'User' });
   expect(general).toHaveAttribute('aria-pressed', 'true');
+  expect(mockLoadUserGraph).not.toHaveBeenCalled();
 
   fireEvent.click(general);
   expect(screen.getByTitle('TikTok video for #booktok')).toBeInTheDocument();
 
   fireEvent.click(user);
   expect(user).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByRole('button', { name: 'Select #pickleball' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Select #pickleball' })).toBeInTheDocument();
+  expect(mockLoadUserGraph).toHaveBeenCalledTimes(1);
   expect(screen.queryByTitle('TikTok video for #booktok')).not.toBeInTheDocument();
 });
 
-test('opens an isolated video player and handles tags with no video', () => {
-  openApp();
+test('opens an isolated video player and handles tags with no video', async () => {
+  await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Select #booktok' }));
 
   expect(screen.getByTitle('TikTok video for #booktok')).toHaveAttribute(
@@ -85,7 +93,7 @@ test('opens an isolated video player and handles tags with no video', () => {
 });
 
 test('searches the current graph by hashtag and reports missing matches', async () => {
-  openApp();
+  await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
 
   const search = await screen.findByRole('searchbox', { name: 'Find a hashtag' });
@@ -100,7 +108,7 @@ test('searches the current graph by hashtag and reports missing matches', async 
 });
 
 test('opens a sample hashtag from the sidebar', async () => {
-  openApp();
+  await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
   fireEvent.click(await screen.findByRole('button', { name: '#Cooking' }));
 
@@ -108,7 +116,7 @@ test('opens a sample hashtag from the sidebar', async () => {
 });
 
 test('prefers the exact spelling when two tags differ only in case', async () => {
-  openApp();
+  await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
 
   const search = await screen.findByRole('searchbox', { name: 'Find a hashtag' });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function Search({ onSearch }) {
+export default function Search({ onSearch, disabled }) {
   const [query, setQuery] = useState('');
   const [notFound, setNotFound] = useState(false);
 
@@ -24,9 +24,10 @@ export default function Search({ onSearch }) {
           placeholder="#booktok"
           value={query}
           onChange={handleChange}
+          disabled={disabled}
           required
         />
-        <button type="submit">Find</button>
+        <button type="submit" disabled={disabled}>Find</button>
       </div>
       {notFound && <p role="status">No matching hashtag in this view.</p>}
     </form>
