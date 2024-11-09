@@ -44,27 +44,21 @@ async function openApp() {
   await screen.findByRole('button', { name: 'Select #booktok' });
 }
 
-test('switches graph views and clears the previous selection', async () => {
+test('shows User as TBD while keeping General available', async () => {
   await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Select #booktok' }));
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
 
   const general = await screen.findByRole('button', { name: 'General' });
-  const user = screen.getByRole('button', { name: 'User' });
+  const user = screen.getByRole('button', { name: 'User (TBD)' });
   expect(general).toHaveAttribute('aria-pressed', 'true');
-  expect(mockLoadUserGraph).not.toHaveBeenCalled();
-
-  fireEvent.click(general);
-  expect(screen.getByTitle('TikTok video for #booktok')).toBeInTheDocument();
+  expect(user).toBeDisabled();
 
   fireEvent.click(user);
-  expect(user).toHaveAttribute('aria-pressed', 'true');
-  expect(await screen.findByRole('button', { name: 'Select #pickleball' })).toBeInTheDocument();
-  expect(mockLoadUserGraph).toHaveBeenCalledTimes(1);
-  const topHashtags = screen.getByRole('region', { name: 'Top hashtags' });
-  expect(within(topHashtags).getByRole('button', { name: '#pickleball' })).toBeInTheDocument();
-  expect(within(topHashtags).queryByRole('button', { name: '#booktok' })).not.toBeInTheDocument();
-  expect(screen.queryByTitle('TikTok video for #booktok')).not.toBeInTheDocument();
+  fireEvent.click(general);
+  expect(general).toHaveAttribute('aria-pressed', 'true');
+  expect(mockLoadUserGraph).not.toHaveBeenCalled();
+  expect(screen.getByTitle('TikTok video for #booktok')).toBeInTheDocument();
 });
 
 test('opens an isolated video player and handles tags with no video', async () => {

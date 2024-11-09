@@ -6,27 +6,20 @@ import WelcomePopup from './components/WelcomePopup';
 import { getSidebarData } from './sidebarData';
 import './App.css';
 
-const GRAPH_LOADERS = {
-  general: () => import(/* webpackChunkName: "graph-general" */ './generated/general.json'),
-  user: () => import(/* webpackChunkName: "graph-user" */ './generated/user.json'),
-};
-
 const MENU_STYLES = { bmCrossButton: { width: 44, height: 44, top: 12, right: 12 } };
 
 function App() {
-  const [graphMode, setGraphMode] = useState('general');
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuVisited, setMenuVisited] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
   const [view, setView] = useState(null);
-  const [failedMode, setFailedMode] = useState(null);
-  const loadFailed = failedMode === graphMode;
-  const graphReady = view?.mode === graphMode;
+  const [loadFailed, setLoadFailed] = useState(false);
+  const graphReady = view !== null;
   const GraphMap = view?.component;
   const browseGraph = graphReady && menuVisited ? view.graphData : null;
   const sidebarData = useMemo(
-    () => browseGraph && getSidebarData(browseGraph, graphMode),
-    [browseGraph, graphMode],
+    () => browseGraph && getSidebarData(browseGraph, 'general'),
+    [browseGraph],
   );
 
   useEffect(() => {
@@ -38,16 +31,16 @@ function App() {
 
     Promise.all([
       import(/* webpackChunkName: "graph-renderer" */ './components/TheMap'),
-      GRAPH_LOADERS[graphMode](),
+      import(/* webpackChunkName: "graph-general" */ './generated/general.json'),
     ]).then(
       ([{ default: component }, { default: graphData }]) => {
         if (active) {
-          setView({ component, graphData, mode: graphMode });
+          setView({ component, graphData });
         }
       },
       () => {
         if (active) {
-          setFailedMode(graphMode);
+          setLoadFailed(true);
         }
       },
     );
@@ -55,17 +48,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [graphMode, graphReady, loadFailed]);
-
-  const handleGraphModeChange = (event, nextMode) => {
-    if (nextMode === null) {
-      return;
-    }
-
-    setGraphMode(nextMode);
-    setSelectedNode(null);
-    setFailedMode(null);
-  };
+  }, [graphReady, loadFailed]);
 
   const handleMenuStateChange = ({ isOpen }) => {
     setMenuOpen(isOpen);
@@ -110,14 +93,12 @@ function App() {
       >
         <div tabIndex={-1}>
           <GraphSidebar
-            graphMode={graphMode}
-            onGraphModeChange={handleGraphModeChange}
             graphReady={graphReady}
             loadFailed={loadFailed}
             data={sidebarData}
             onSelectNode={tag => selectNodeFromMenu(tag.node)}
           >
-            <Search key={graphMode} onSearch={selectHashtag} disabled={!graphReady} />
+            <Search onSearch={selectHashtag} disabled={!graphReady} />
           </GraphSidebar>
         </div>
       </Menu>
@@ -133,7 +114,7 @@ function App() {
           {loadFailed ? (
             <>
               <p role="alert">Couldn’t load this graph.</p>
-              <button type="button" onClick={() => setFailedMode(null)}>Try again</button>
+              <button type="button" onClick={() => setLoadFailed(false)}>Try again</button>
             </>
           ) : (
             <p role="status">Loading graph…</p>

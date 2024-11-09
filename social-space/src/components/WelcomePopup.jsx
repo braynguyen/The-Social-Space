@@ -28,7 +28,7 @@ export default function WelcomePopup() {
         </p>
         <p>
           In the future, we want to map the Toks in anyone’s For You feed and let people compare
-          them with friends. Choose User in the sidebar to explore a sample feed.
+          them with friends.
         </p>
         <button type="button" onClick={() => setOpen(false)}>Continue</button>
       </div>

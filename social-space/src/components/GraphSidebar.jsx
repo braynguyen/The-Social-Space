@@ -184,7 +184,7 @@ function keepKeyboardNavigation(event) {
   }
 }
 
-export default function GraphSidebar({ graphMode, onGraphModeChange, graphReady, loadFailed, data, onSelectNode, children }) {
+export default function GraphSidebar({ graphReady, loadFailed, data, onSelectNode, children }) {
   return (
     <div className="graph-sidebar" onKeyDown={keepKeyboardNavigation}>
       <header className="sidebar-header">
@@ -192,20 +192,8 @@ export default function GraphSidebar({ graphMode, onGraphModeChange, graphReady,
       </header>
 
       <div className="graph-mode" role="group" aria-label="Graph view">
-        <button
-          type="button"
-          aria-pressed={graphMode === 'general'}
-          onClick={event => onGraphModeChange(event, graphMode !== 'general' ? 'general' : null)}
-        >
-          General
-        </button>
-        <button
-          type="button"
-          aria-pressed={graphMode === 'user'}
-          onClick={event => onGraphModeChange(event, graphMode !== 'user' ? 'user' : null)}
-        >
-          User
-        </button>
+        <button type="button" aria-pressed="true">General</button>
+        <button type="button" disabled>User (TBD)</button>
       </div>
       {children}
 
