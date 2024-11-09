@@ -21,6 +21,7 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const FALLBACK_COLOR = '#ffffaa';
 const UNLINKED_RADIUS_SCALE = 0.55;
 const MAX_ASPECT_SPREAD = 2;
+const LINK_OPACITY = 0.12;
 
 const pointVertexShader = `
   attribute float diameter;
@@ -141,13 +142,76 @@ export function createGraphScene({ nodes, links }, aspect = 1) {
   const linkMaterial = new LineBasicMaterial({
     color: '#aabbcc',
     transparent: true,
-    opacity: 0.12,
+    opacity: LINK_OPACITY,
     depthWrite: false,
   });
 
+  const neighborsById = new Map();
+  let maxNeighbors = 0;
+  const addNeighbor = (id, neighborId) => {
+    let neighbors = neighborsById.get(id);
+    if (!neighbors) {
+      neighbors = new Set();
+      neighborsById.set(id, neighbors);
+    }
+    neighbors.add(neighborId);
+    maxNeighbors = Math.max(maxNeighbors, neighbors.size);
+  };
+
+  for (const { source, target } of links) {
+    if (source !== target) {
+      addNeighbor(source, target);
+      addNeighbor(target, source);
+    }
+  }
+
+  const focusedLinkVertices = new Float32Array(maxNeighbors * 6);
+  const focusedLinkPosition = new BufferAttribute(focusedLinkVertices, 3);
+  const focusedLinkGeometry = new BufferGeometry();
+  focusedLinkGeometry.setAttribute('position', focusedLinkPosition);
+  focusedLinkGeometry.setDrawRange(0, 0);
+  focusedLinkGeometry.boundingSphere = linkGeometry.boundingSphere;
+  const focusedLinkMaterial = new LineBasicMaterial({
+    color: '#ffe66d',
+    transparent: true,
+    opacity: 0.92,
+    depthWrite: false,
+  });
+  const focusedLinks = new LineSegments(focusedLinkGeometry, focusedLinkMaterial);
+  focusedLinks.visible = false;
+  focusedLinks.renderOrder = 1;
+  let focusedNodeId;
+
+  const updateFocusedLinks = () => {
+    const neighbors = neighborsById.get(focusedNodeId);
+    const count = neighbors?.size ?? 0;
+    focusedLinks.visible = count > 0;
+    focusedLinkGeometry.setDrawRange(0, count * 2);
+    linkMaterial.opacity = count ? 0.04 : LINK_OPACITY;
+    if (!count) {
+      return;
+    }
+
+    const origin = positions.get(focusedNodeId);
+    let offset = 0;
+    for (const neighborId of neighbors) {
+      focusedLinkVertices.set(origin, offset);
+      focusedLinkVertices.set(positions.get(neighborId), offset + 3);
+      offset += 6;
+    }
+    focusedLinkPosition.needsUpdate = true;
+  };
+
   const light = new DirectionalLight(0xffffff, 2);
   light.position.set(1, 2, 3);
-  scene.add(nodeMesh, pointCloud, new LineSegments(linkGeometry, linkMaterial), new AmbientLight(0xffffff, 1), light);
+  scene.add(
+    nodeMesh,
+    pointCloud,
+    new LineSegments(linkGeometry, linkMaterial),
+    focusedLinks,
+    new AmbientLight(0xffffff, 1),
+    light,
+  );
 
   let radius = layoutRadius;
   let spreadX;
@@ -197,6 +261,7 @@ export function createGraphScene({ nodes, links }, aspect = 1) {
     });
     linkGeometry.getAttribute('position').needsUpdate = true;
     linkGeometry.boundingSphere.radius = radius;
+    updateFocusedLinks();
   };
   setAspect(aspect);
 
@@ -232,8 +297,10 @@ export function createGraphScene({ nodes, links }, aspect = 1) {
       updatePointVisibility();
     },
     setFocusedNode(node) {
+      focusedNodeId = node?.id;
       focusedPointIndex = node && !node.position ? isolatedNodes.findIndex(({ id }) => id === node.id) : -1;
       updatePointVisibility();
+      updateFocusedLinks();
     },
     pickNode(raycaster) {
       raycaster.params.Points.threshold = maxPointRadius;
@@ -257,6 +324,8 @@ export function createGraphScene({ nodes, links }, aspect = 1) {
       pointMaterial.dispose();
       linkGeometry.dispose();
       linkMaterial.dispose();
+      focusedLinkGeometry.dispose();
+      focusedLinkMaterial.dispose();
     },
   };
 }

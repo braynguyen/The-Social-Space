@@ -96,6 +96,59 @@ test('refits the same scene and marker positions when the viewport changes orien
   }
 });
 
+test('highlights the focused hashtag’s distinct edges at their current positions', () => {
+  const books = { id: 'books', position: [-160, -600, 0], val: 1 };
+  const reading = { id: 'reading', position: [240, 600, 0], val: 1 };
+  const writing = { id: 'writing', position: [100, -200, 100], val: 1 };
+  const poetry = { id: 'poetry', position: [320, 200, 100], val: 1 };
+  const cooking = { id: 'cooking', val: 1 };
+  const graph = createGraphScene({
+    nodes: [books, reading, writing, poetry, cooking],
+    links: [
+      { source: reading.id, target: books.id },
+      { source: books.id, target: reading.id },
+      { source: books.id, target: writing.id },
+      { source: writing.id, target: poetry.id },
+      { source: books.id, target: books.id },
+    ],
+  });
+
+  try {
+    const [edges, highlight] = graph.scene.children.filter(object => object.isLineSegments);
+    const edgeOpacity = edges.material.opacity;
+    const highlightedPositions = () => Array.from(
+      highlight.geometry.getAttribute('position').array.slice(0, highlight.geometry.drawRange.count * 3),
+    );
+    const positionsFor = (...nodes) => nodes.flatMap(node => graph.positions.get(node.id));
+
+    expect(highlight.visible).toBe(false);
+
+    graph.setFocusedNode(books);
+    expect(highlight.visible).toBe(true);
+    expect(edges.material.opacity).toBeLessThan(edgeOpacity);
+    expect(highlight.material.opacity).toBeGreaterThan(edgeOpacity);
+    expect(highlightedPositions()).toEqual(positionsFor(books, reading, books, writing));
+
+    graph.setAspect(0.5);
+    expect(highlightedPositions()).toEqual(positionsFor(books, reading, books, writing));
+
+    graph.setFocusedNode(reading);
+    expect(highlightedPositions()).toEqual(positionsFor(reading, books));
+
+    graph.setFocusedNode(cooking);
+    expect(highlight.visible).toBe(false);
+    expect(edges.material.opacity).toBe(edgeOpacity);
+
+    graph.setFocusedNode(books);
+    graph.setFocusedNode(null);
+    expect(highlight.visible).toBe(false);
+    expect(highlightedPositions()).toEqual([]);
+    expect(edges.material.opacity).toBe(edgeOpacity);
+  } finally {
+    graph.dispose();
+  }
+});
+
 test('gives larger weights larger markers at the same scale in both views', () => {
   const snapshots = [1, 0.01].map(multiplier => [
     { id: 'small', position: [-1000, 0, 0], val: 20 * multiplier },
