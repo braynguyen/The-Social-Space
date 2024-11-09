@@ -89,9 +89,10 @@ test('searches the current graph by hashtag and reports missing matches', async 
   fireEvent.change(search, { target: { value: '  #BOOKTOK ' } });
   fireEvent.click(find);
   expect(screen.getByTitle('TikTok video for #booktok')).toBeInTheDocument();
+  expect(screen.getByRole('searchbox', { name: 'Find a hashtag' })).toBeVisible();
 });
 
-test('ranks top hashtags and opens the selected result from the sidebar', async () => {
+test('opens ranked hashtags while the sidebar stays open', async () => {
   await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
 
@@ -100,7 +101,13 @@ test('ranks top hashtags and opens the selected result from the sidebar', async 
   expect(rankedTags.map(button => button.getAttribute('aria-label'))).toEqual(['#cooking', '#booktok', '#BookTok']);
   fireEvent.click(rankedTags[0]);
 
-  expect(screen.getByRole('region', { name: '#cooking' })).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: '#cooking' })).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Top hashtags' })).toBeVisible();
+
+  fireEvent.click(within(topHashtags).getByRole('button', { name: /^#booktok$/ }));
+  expect(screen.getByRole('region', { name: '#booktok' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
+  expect(screen.getByRole('region', { name: 'Top hashtags' })).toBeVisible();
 });
 
 test('browses only the selected genre and opens its exact hashtag', async () => {
@@ -116,6 +123,9 @@ test('browses only the selected genre and opens its exact hashtag', async () => 
   fireEvent.click(within(genres).getByRole('button', { name: '#BookTok' }));
 
   expect(screen.getByRole('region', { name: '#BookTok' })).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Genres' })).getByRole('button', {
+    name: 'Books & reading',
+  })).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('prefers the exact spelling when two tags differ only in case', async () => {

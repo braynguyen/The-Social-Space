@@ -57,11 +57,6 @@ function App() {
     }
   };
 
-  const selectNodeFromMenu = node => {
-    setSelectedNode(node);
-    setMenuOpen(false);
-  };
-
   const selectHashtag = query => {
     if (!graphReady) {
       return false;
@@ -76,17 +71,17 @@ function App() {
       return false;
     }
 
-    selectNodeFromMenu(node);
+    setSelectedNode(node);
     return true;
   };
 
   return (
-    <div className="App">
+    <div className={menuOpen && selectedNode ? 'App App--sidebar-preview' : 'App'}>
       <WelcomePopup />
       <Menu
         id="hashtag-menu"
         isOpen={menuOpen}
-        width="min(24rem, calc(100vw - 1rem))"
+        width="var(--sidebar-width)"
         right
         styles={MENU_STYLES}
         onStateChange={handleMenuStateChange}
@@ -96,7 +91,7 @@ function App() {
             graphReady={graphReady}
             loadFailed={loadFailed}
             data={sidebarData}
-            onSelectNode={tag => selectNodeFromMenu(tag.node)}
+            onSelectNode={tag => setSelectedNode(tag.node)}
           >
             <Search onSearch={selectHashtag} disabled={!graphReady} />
           </GraphSidebar>
@@ -106,7 +101,7 @@ function App() {
         <GraphMap
           graphData={view.graphData}
           selectedNode={selectedNode}
-          onSelectNode={graphReady ? setSelectedNode : undefined}
+          onSelectNode={setSelectedNode}
         />
       )}
       {!graphReady && (

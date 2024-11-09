@@ -1,4 +1,5 @@
 .App {
+  --sidebar-width: min(250px, calc(100vw - 1rem));
   min-height: 100vh;
   background-color: black;
 }
@@ -315,4 +316,32 @@
   height: min(32rem, 65vh);
   margin-bottom: 0.5rem;
   border: 0;
+}
+
+.App--sidebar-preview .video-preview {
+  z-index: 1101;
+  left: calc((100% - var(--sidebar-width)) / 2);
+  width: min(26rem, calc(100% - var(--sidebar-width) - 2rem));
+}
+
+@media (max-width: 36rem) {
+  .App--sidebar-preview {
+    --sidebar-preview-height: min(17rem, 44vh);
+    --sidebar-preview-height: min(17rem, 44dvh);
+  }
+
+  .App--sidebar-preview .video-preview {
+    inset: auto 0.5rem 0.5rem auto;
+    width: calc(var(--sidebar-width) - 1rem);
+    max-height: var(--sidebar-preview-height);
+    transform: none;
+  }
+
+  .App--sidebar-preview .video-preview iframe {
+    height: min(12rem, 30vh);
+  }
+
+  .App--sidebar-preview #hashtag-menu .bm-menu {
+    max-height: calc(100% - var(--sidebar-preview-height) - 1rem);
+  }
 }
