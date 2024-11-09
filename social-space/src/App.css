@@ -170,60 +170,6 @@
   background: #bdc3c7;
 }
 
-/*
-Sidebar wrapper styles
-Note: Beware of modifying this element as it can break the animations - you should not need to touch it in most cases
-*/
-.bm-menu-wrap {
-  position: fixed;
-  height: 100%;
-}
-
-/* General sidebar styles */
-.bm-menu {
-  background: #373a47;
-  padding: 2.5em 1.5em 0;
-  font-size: 1.15em;
-}
-
-/* Morph shape necessary with bubble or elastic */
-.bm-morph-shape {
-  fill: #373a47;
-}
-
-/* Wrapper for item list */
-.bm-item-list {
-  color: #b8b7ad;
-  padding: 0.8em;
-}
-
-/* Individual item */
-.bm-item {
-  display: inline-block;
-  margin-bottom: 10px;
-}
-
-/* Styling for the title */
-.bm-title {
-  font-family: 'YourCoolFont', sans-serif; /* Replace 'YourCoolFont' with the desired font name */
-  font-size: 1.5em;
-  font-weight: bold;
-  color: #ffffff; /* Change to your desired color */
-  margin-bottom: 15px;
-}
-
-/* Styling of overlay */
-.bm-overlay {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* Styling of overlay */
-.bm-overlay {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* Add this to your existing CSS file or create a new one */
-
 /* Center the container div */
 .menu-container {
   display: flex;
@@ -264,57 +210,6 @@ Note: Beware of modifying this element as it can break the animations - you shou
     transform: rotate(360deg);
   }
 }
-.graph-mode .MuiToggleButton-root {
-  color: white;
-  border-color: #b8b7ad;
-}
-
-.graph-mode .MuiToggleButton-root.Mui-selected,
-.graph-mode .MuiToggleButton-root.Mui-selected:hover {
-  color: #1f2330;
-  background-color: #d3d3d3;
-}
-
-.hashtag-search {
-  display: grid;
-  gap: 0.5rem;
-  margin-block: 1rem;
-  font-size: 0.9em;
-}
-
-.hashtag-search-controls {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.hashtag-search-controls input {
-  flex: 1;
-  min-width: 0;
-}
-
-.hashtag-search p {
-  margin: 0;
-}
-
-.tag-shortcut {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: white;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.tag-shortcut:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.tag-shortcut:enabled:hover {
-  color: #afd5ff;
-}
-
 .grayed-background {
   position: absolute;
   height: 100vh;

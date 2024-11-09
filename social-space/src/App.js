@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import { useEffect, useMemo, useState } from 'react';
 import { slide as Menu } from 'react-burger-menu';
+import GraphSidebar from './components/GraphSidebar';
 import Search from './components/Search';
 import WelcomePopup from './components/WelcomePopup';
+import { getSidebarData } from './sidebarData';
 import './App.css';
 
 const GRAPH_LOADERS = {
@@ -11,17 +11,23 @@ const GRAPH_LOADERS = {
   user: () => import(/* webpackChunkName: "graph-user" */ './generated/user.json'),
 };
 
-const SAMPLE_HASHTAGS = ['BookTok', 'Pickleball', 'Cooking'];
+const MENU_STYLES = { bmCrossButton: { width: 44, height: 44, top: 12, right: 12 } };
 
 function App() {
   const [graphMode, setGraphMode] = useState('general');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuVisited, setMenuVisited] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
   const [view, setView] = useState(null);
   const [failedMode, setFailedMode] = useState(null);
   const loadFailed = failedMode === graphMode;
   const graphReady = view?.mode === graphMode;
   const GraphMap = view?.component;
+  const browseGraph = graphReady && menuVisited ? view.graphData : null;
+  const sidebarData = useMemo(
+    () => browseGraph && getSidebarData(browseGraph, graphMode),
+    [browseGraph, graphMode],
+  );
 
   useEffect(() => {
     if (graphReady || loadFailed) {
@@ -61,7 +67,19 @@ function App() {
     setFailedMode(null);
   };
 
-  const selectHashtag = (query) => {
+  const handleMenuStateChange = ({ isOpen }) => {
+    setMenuOpen(isOpen);
+    if (isOpen) {
+      setMenuVisited(true);
+    }
+  };
+
+  const selectNodeFromMenu = node => {
+    setSelectedNode(node);
+    setMenuOpen(false);
+  };
+
+  const selectHashtag = query => {
     if (!graphReady) {
       return false;
     }
@@ -75,44 +93,32 @@ function App() {
       return false;
     }
 
-    setSelectedNode(node);
-    setMenuOpen(false);
+    selectNodeFromMenu(node);
     return true;
   };
 
   return (
     <div className="App">
       <WelcomePopup />
-      <Menu isOpen={menuOpen} width={250} right onStateChange={({ isOpen }) => setMenuOpen(isOpen)}>
-        <div>
-          <h2>Social Space (WIP)</h2>
-          <ToggleButtonGroup
-            className="graph-mode"
-            aria-label="Graph view"
-            exclusive
-            value={graphMode}
-            onChange={handleGraphModeChange}
+      <Menu
+        id="hashtag-menu"
+        isOpen={menuOpen}
+        width="min(24rem, calc(100vw - 1rem))"
+        right
+        styles={MENU_STYLES}
+        onStateChange={handleMenuStateChange}
+      >
+        <div tabIndex={-1}>
+          <GraphSidebar
+            graphMode={graphMode}
+            onGraphModeChange={handleGraphModeChange}
+            graphReady={graphReady}
+            loadFailed={loadFailed}
+            data={sidebarData}
+            onSelectNode={tag => selectNodeFromMenu(tag.node)}
           >
-            <ToggleButton value="general">General</ToggleButton>
-            <ToggleButton value="user">User</ToggleButton>
-          </ToggleButtonGroup>
-          <Search key={graphMode} onSearch={selectHashtag} disabled={!graphReady} />
-
-          <h3>Sample hashtags</h3>
-          <ul>
-            {SAMPLE_HASHTAGS.map(tag => (
-              <li key={tag}>
-                <button
-                  className="tag-shortcut"
-                  type="button"
-                  disabled={!graphReady}
-                  onClick={() => selectHashtag(tag)}
-                >
-                  #{tag}
-                </button>
-              </li>
-            ))}
-          </ul>
+            <Search key={graphMode} onSearch={selectHashtag} disabled={!graphReady} />
+          </GraphSidebar>
         </div>
       </Menu>
       {GraphMap && (

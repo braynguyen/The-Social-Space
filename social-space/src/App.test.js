@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import App from './App';
 
 jest.mock('./generated/general.json', () => ({
@@ -6,12 +6,15 @@ jest.mock('./generated/general.json', () => ({
     {
       id: 'booktok',
       name: '#booktok',
+      val: 12,
+      color: '#6500bf',
+      position: [0, 0, 0],
       video_links: ['https://www.tiktok.com/@reader/video/123456789'],
     },
-    { id: 'BookTok', name: '#BookTok' },
-    { id: 'cooking', name: '#cooking', video_links: ['N/A'] },
+    { id: 'BookTok', name: '#BookTok', val: 2, color: '#6500bf' },
+    { id: 'cooking', name: '#cooking', val: 20, color: '#a895c4', position: [1, 0, 0], video_links: ['N/A'] },
   ],
-  links: [],
+  links: [{ source: 'booktok', target: 'cooking' }],
 }));
 
 const mockLoadUserGraph = jest.fn();
@@ -19,7 +22,7 @@ const mockLoadUserGraph = jest.fn();
 jest.mock('./generated/user.json', () => {
   mockLoadUserGraph();
   return {
-    nodes: [{ id: 'pickleball', name: '#pickleball' }],
+    nodes: [{ id: 'pickleball', name: '#pickleball', val: 10, color: '#5347fc' }],
     links: [],
   };
 });
@@ -58,6 +61,9 @@ test('switches graph views and clears the previous selection', async () => {
   expect(user).toHaveAttribute('aria-pressed', 'true');
   expect(await screen.findByRole('button', { name: 'Select #pickleball' })).toBeInTheDocument();
   expect(mockLoadUserGraph).toHaveBeenCalledTimes(1);
+  const topHashtags = screen.getByRole('region', { name: 'Top hashtags' });
+  expect(within(topHashtags).getByRole('button', { name: '#pickleball' })).toBeInTheDocument();
+  expect(within(topHashtags).queryByRole('button', { name: '#booktok' })).not.toBeInTheDocument();
   expect(screen.queryByTitle('TikTok video for #booktok')).not.toBeInTheDocument();
 });
 
@@ -91,12 +97,31 @@ test('searches the current graph by hashtag and reports missing matches', async 
   expect(screen.getByTitle('TikTok video for #booktok')).toBeInTheDocument();
 });
 
-test('opens a sample hashtag from the sidebar', async () => {
+test('ranks top hashtags and opens the selected result from the sidebar', async () => {
   await openApp();
   fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
-  fireEvent.click(await screen.findByRole('button', { name: '#Cooking' }));
+
+  const topHashtags = await screen.findByRole('region', { name: 'Top hashtags' });
+  const rankedTags = within(topHashtags).getAllByRole('button');
+  expect(rankedTags.map(button => button.getAttribute('aria-label'))).toEqual(['#cooking', '#booktok', '#BookTok']);
+  fireEvent.click(rankedTags[0]);
 
   expect(screen.getByRole('region', { name: '#cooking' })).toBeInTheDocument();
+});
+
+test('browses only the selected genre and opens its exact hashtag', async () => {
+  await openApp();
+  fireEvent.click(screen.getByRole('button', { name: 'Open Menu' }));
+
+  const genres = await screen.findByRole('region', { name: 'Genres' });
+  const books = within(genres).getByRole('button', { name: 'Books & reading' });
+  expect(books).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(books);
+  expect(books).toHaveAttribute('aria-expanded', 'true');
+  expect(within(genres).queryByRole('button', { name: '#cooking' })).not.toBeInTheDocument();
+  fireEvent.click(within(genres).getByRole('button', { name: '#BookTok' }));
+
+  expect(screen.getByRole('region', { name: '#BookTok' })).toBeInTheDocument();
 });
 
 test('prefers the exact spelling when two tags differ only in case', async () => {
