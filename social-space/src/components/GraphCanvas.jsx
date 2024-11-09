@@ -4,6 +4,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { positionGraphMarker } from './graphMarker';
 import { createGraphScene } from './graphScene';
 
+const OPENING_SCALE = 0.74;
+const FIT_MARGIN = 1.04;
+
 export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
   const canvasRef = useRef(null);
   const graphRef = useRef(null);
@@ -32,20 +35,21 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     setRenderFailed(false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-    const graph = createGraphScene(graphData);
+    const initialAspect = Math.max(canvas.clientWidth, 1) / Math.max(canvas.clientHeight, 1);
+    const graph = createGraphScene(graphData, initialAspect);
     const camera = new PerspectiveCamera(45, 1, 0.5, graph.radius * 40);
     const controls = new OrbitControls(camera, canvas);
     controls.listenToKeyEvents(canvas);
     controls.minDistance = 2;
-    controls.maxDistance = graph.radius * 20;
 
     const focusElement = focusMarkerRef.current;
     const hoverElement = hoverMarkerRef.current;
     let focused = null;
     let hovered = null;
-    let width = 1;
-    let height = 1;
+    let width = 0;
+    let height = 0;
     let frame = null;
+    let overviewScale = OPENING_SCALE;
 
     const updateMarkers = () => {
       const hoverMarker = hovered?.id === focused?.id ? null : hovered;
@@ -63,27 +67,42 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       }
     };
 
-    const fitDistance = () => {
-      const verticalHalfFov = camera.fov * Math.PI / 360;
-      const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * camera.aspect);
-      return graph.radius / Math.sin(Math.min(verticalHalfFov, horizontalHalfFov));
+    const frameGraph = scale => {
+      hovered = null;
+      graph.setAspect(camera.aspect);
+      const distance = graph.getOverviewDistance(camera.fov, camera.aspect) * FIT_MARGIN;
+      camera.position.set(0, 0, distance * scale);
+      camera.far = Math.max(graph.radius * 40, distance + graph.radius);
+      controls.target.set(0, 0, 0);
+      controls.maxDistance = Math.max(graph.radius * 20, distance);
+      camera.updateProjectionMatrix();
+      controls.update();
+      // OrbitControls also reports the programmatic change above.
+      overviewScale = scale;
     };
 
     const resize = () => {
-      width = Math.max(canvas.clientWidth, 1);
-      height = Math.max(canvas.clientHeight, 1);
+      const nextWidth = Math.max(canvas.clientWidth, 1);
+      const nextHeight = Math.max(canvas.clientHeight, 1);
+      if (width === nextWidth && height === nextHeight) {
+        return;
+      }
+      width = nextWidth;
+      height = nextHeight;
       camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      if (overviewScale === null) {
+        camera.updateProjectionMatrix();
+      } else {
+        frameGraph(overviewScale);
+      }
       renderer.setSize(width, height, false);
       graph.setPixelHeight(height * renderer.getPixelRatio());
       requestDraw();
     };
 
     resize();
-    camera.position.set(0, 0, fitDistance() * 1.08);
-    controls.maxDistance = Math.max(controls.maxDistance, camera.position.z);
-    controls.update();
     controls.addEventListener('change', () => {
+      overviewScale = null;
       hovered = null;
       requestDraw();
     });
@@ -101,6 +120,10 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
     const raycaster = new Raycaster();
     const pointer = new Vector2();
     graphRef.current = {
+      fit() {
+        frameGraph(1);
+        requestDraw();
+      },
       focus(node) {
         focused = markerFor(node);
         graph.setFocusedNode(node);
@@ -221,15 +244,22 @@ export default function GraphCanvas({ graphData, selectedNode, onSelectNode }) {
       <div className="graph-marker" ref={hoverMarkerRef} hidden>
         <span className="graph-marker-label" role="tooltip" />
       </div>
-      {!renderFailed && unlinkedCount > 0 && unlinkedCount < graphData.nodes.length && (
-        <label className="graph-outliers">
-          <input
-            type="checkbox"
-            checked={showUnlinked}
-            onChange={event => setShowUnlinked(event.target.checked)}
-          />
-          Show {unlinkedCount.toLocaleString()} unlinked hashtags
-        </label>
+      {!renderFailed && (
+        <div className="graph-actions">
+          <button className="graph-fit" type="button" onClick={() => graphRef.current?.fit()}>
+            Fit graph
+          </button>
+          {unlinkedCount > 0 && unlinkedCount < graphData.nodes.length && (
+            <label className="graph-outliers">
+              <input
+                type="checkbox"
+                checked={showUnlinked}
+                onChange={event => setShowUnlinked(event.target.checked)}
+              />
+              Show {unlinkedCount.toLocaleString()} unlinked hashtags
+            </label>
+          )}
+        </div>
       )}
       {renderFailed ? (
         <p className="graph-load-status" role="status">

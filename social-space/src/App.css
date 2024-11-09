@@ -77,21 +77,40 @@
   white-space: nowrap;
 }
 
-.graph-outliers {
+.graph-actions {
   position: absolute;
   top: 1rem;
   left: 1rem;
   z-index: 2;
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  max-width: calc(100% - 6rem);
+}
+
+.graph-fit,
+.graph-outliers {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-height: 2.25rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid #3a4154;
   border-radius: 5px;
   background: #10111f;
   color: #e0e4ee;
+  font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
+}
+
+.graph-fit:hover,
+.graph-outliers:hover {
+  border-color: #75809b;
+}
+
+.graph-outliers {
+  gap: 0.5rem;
 }
 
 .graph-outliers input {
@@ -372,6 +391,14 @@ Note: Beware of modifying this element as it can break the animations - you shou
   color: black;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 36rem) {
+  .video-preview {
+    top: 5rem;
+    max-height: calc(100vh - 6rem);
+    max-height: calc(100dvh - 6rem);
+  }
 }
 
 .video-preview-header {

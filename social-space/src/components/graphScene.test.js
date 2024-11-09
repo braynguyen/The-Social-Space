@@ -1,15 +1,15 @@
-import { Matrix4, Raycaster, Vector3 } from 'three';
+import { Frustum, Matrix4, PerspectiveCamera, Raycaster, Vector3 } from 'three';
 import { createGraphScene } from './graphScene';
 
-test('picks linked and visible unlinked hashtags from the batched graph', () => {
-  const linked = { id: 'books', position: [0, -600, 0], val: 1 };
-  const neighbor = { id: 'reading', position: [0, 600, 0], val: 1 };
+test.each([0.5, 1, 2])('picks linked and visible unlinked hashtags at aspect %s', aspect => {
+  const linked = { id: 'books', position: [-160, -600, 0], val: 1 };
+  const neighbor = { id: 'reading', position: [240, 600, 0], val: 1 };
   const isolated = { id: 'cooking', val: 1 };
   const otherIsolated = { id: 'gardening', val: 1 };
   const graph = createGraphScene({
     nodes: [linked, neighbor, isolated, otherIsolated],
     links: [{ source: linked.id, target: neighbor.id }],
-  });
+  }, aspect);
 
   try {
     const mesh = graph.scene.children.find(object => object.isInstancedMesh);
@@ -17,8 +17,10 @@ test('picks linked and visible unlinked hashtags from the batched graph', () => 
     const edges = graph.scene.children.find(object => object.isLineSegments);
     expect(mesh.count).toBe(2);
     expect(points.geometry.getAttribute('position').count).toBe(2);
+    const spreadX = Math.max(1, aspect);
+    const spreadY = Math.max(1, 1 / aspect);
     expect(Array.from(edges.geometry.getAttribute('position').array)).toEqual([
-      ...linked.position, ...neighbor.position,
+      -160 * spreadX, -600 * spreadY, 0, 240 * spreadX, 600 * spreadY, 0,
     ]);
 
     const ray = new Raycaster(new Vector3(), new Vector3(0, 0, -1));
@@ -49,6 +51,46 @@ test('picks linked and visible unlinked hashtags from the batched graph', () => 
     graph.setFocusedNode(null);
     expect(points.visible).toBe(false);
     expect(pickAt(isolated)).toBeNull();
+  } finally {
+    graph.dispose();
+  }
+});
+
+test('refits the same scene and marker positions when the viewport changes orientation', () => {
+  const linked = { id: 'books', position: [250, -900, 700], val: 1 };
+  const otherNode = { id: 'reading', position: [-800, 600, -300], val: 1 };
+  const isolated = { id: 'cooking', val: 1 };
+  const graph = createGraphScene({
+    nodes: [linked, otherNode, isolated],
+    links: [{ source: linked.id, target: otherNode.id }],
+  }, 2);
+
+  try {
+    const position = graph.positions.get(linked.id);
+    const verifyFit = aspect => {
+      const camera = new PerspectiveCamera(45, aspect, 0.5, 10000);
+      camera.position.z = graph.getOverviewDistance(camera.fov, aspect);
+      camera.updateMatrixWorld();
+      const projection = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      const frustum = new Frustum().setFromProjectionMatrix(projection);
+      const margins = [linked, otherNode, isolated].flatMap(node => {
+        const center = new Vector3().fromArray(graph.positions.get(node.id));
+        return frustum.planes.map(plane => plane.distanceToPoint(center) - graph.getNodeRadius(node));
+      });
+      expect(Math.min(...margins)).toBeCloseTo(0);
+    };
+
+    expect(position).toEqual([500, -900, 700]);
+    verifyFit(2);
+
+    graph.setAspect(0.5);
+    expect(graph.positions.get(linked.id)).toBe(position);
+    expect(position).toEqual([250, -1800, 700]);
+    const edges = graph.scene.children.find(object => object.isLineSegments);
+    expect(Array.from(edges.geometry.getAttribute('position').array)).toEqual([250, -1800, 700, -800, 1200, -300]);
+    const ray = new Raycaster(new Vector3(250, -1800, 2000), new Vector3(0, 0, -1));
+    expect(graph.pickNode(ray)).toBe(linked);
+    verifyFit(0.5);
   } finally {
     graph.dispose();
   }

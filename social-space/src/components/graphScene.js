@@ -14,13 +14,13 @@ import {
   Scene,
   ShaderMaterial,
   Sphere,
-  Vector3,
 } from 'three';
 import { createNodeSizer } from '../graphSizing.mjs';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const FALLBACK_COLOR = '#ffffaa';
 const UNLINKED_RADIUS_SCALE = 0.55;
+const MAX_ASPECT_SPREAD = 2;
 
 const pointVertexShader = `
   attribute float diameter;
@@ -61,7 +61,7 @@ function isolatedPosition(index, count, radius) {
   ];
 }
 
-export function createGraphScene({ nodes, links }) {
+export function createGraphScene({ nodes, links }, aspect = 1) {
   const scene = new Scene();
   scene.background = new Color('#000011');
 
@@ -82,51 +82,38 @@ export function createGraphScene({ nodes, links }) {
   const radiusForWeight = createNodeSizer(nodes);
   const getNodeRadius = node => radiusForWeight(node) * (node.position ? 1 : UNLINKED_RADIUS_SCALE);
 
-  const positions = new Map();
+  const positions = new Map(nodes.map(({ id }) => [id, [0, 0, 0]]));
   const color = new Color();
   const transform = new Object3D();
 
   const nodeGeometry = new IcosahedronGeometry(1, 1);
   const nodeMaterial = new MeshLambertMaterial();
   const nodeMesh = new InstancedMesh(nodeGeometry, nodeMaterial, connectedNodes.length);
-  let connectedRadius = layoutRadius;
+  nodeMesh.boundingSphere = new Sphere();
 
   connectedNodes.forEach((node, index) => {
-    positions.set(node.id, node.position);
-    transform.position.fromArray(node.position);
-    transform.scale.setScalar(getNodeRadius(node));
-    transform.updateMatrix();
-
-    nodeMesh.setMatrixAt(index, transform.matrix);
     nodeMesh.setColorAt(index, color.set(node.color ?? FALLBACK_COLOR));
-    connectedRadius = Math.max(connectedRadius, transform.position.length() + transform.scale.x);
   });
 
-  nodeMesh.boundingSphere = new Sphere(new Vector3(), connectedRadius);
-
   // Draw unlinked hashtags as depth-scaled circular points. They need no mesh triangles.
+  const isolatedPositions = isolatedNodes.map((_, index) => isolatedPosition(index, isolatedNodes.length, layoutRadius));
   const pointPositions = new Float32Array(isolatedNodes.length * 3);
   const pointColors = new Float32Array(isolatedNodes.length * 3);
   const pointDiameters = new Float32Array(isolatedNodes.length);
-  let radius = connectedRadius;
   let maxPointRadius = 0;
 
   isolatedNodes.forEach((node, index) => {
-    const position = isolatedPosition(index, isolatedNodes.length, layoutRadius);
     const size = getNodeRadius(node);
-    positions.set(node.id, position);
-    pointPositions.set(position, index * 3);
     color.set(node.color ?? FALLBACK_COLOR).toArray(pointColors, index * 3);
     pointDiameters[index] = 2 * size;
     maxPointRadius = Math.max(maxPointRadius, size);
-    radius = Math.max(radius, Math.hypot(...position) + size);
   });
 
   const pointGeometry = new BufferGeometry();
   pointGeometry.setAttribute('position', new BufferAttribute(pointPositions, 3));
   pointGeometry.setAttribute('color', new BufferAttribute(pointColors, 3));
   pointGeometry.setAttribute('diameter', new BufferAttribute(pointDiameters, 1));
-  pointGeometry.boundingSphere = new Sphere(new Vector3(), radius);
+  pointGeometry.boundingSphere = new Sphere();
 
   const pointMaterial = new ShaderMaterial({
     vertexColors: true,
@@ -148,13 +135,9 @@ export function createGraphScene({ nodes, links }) {
   updatePointVisibility();
 
   const vertices = new Float32Array(links.length * 6);
-  links.forEach(({ source, target }, index) => {
-    vertices.set(positions.get(source), index * 6);
-    vertices.set(positions.get(target), index * 6 + 3);
-  });
-
   const linkGeometry = new BufferGeometry();
   linkGeometry.setAttribute('position', new BufferAttribute(vertices, 3));
+  linkGeometry.boundingSphere = new Sphere();
   const linkMaterial = new LineBasicMaterial({
     color: '#aabbcc',
     transparent: true,
@@ -166,11 +149,81 @@ export function createGraphScene({ nodes, links }) {
   light.position.set(1, 2, 3);
   scene.add(nodeMesh, pointCloud, new LineSegments(linkGeometry, linkMaterial), new AmbientLight(0xffffff, 1), light);
 
+  let radius = layoutRadius;
+  let spreadX;
+  let spreadY;
+
+  const setAspect = aspect => {
+    const nextSpreadX = Math.min(Math.max(1, aspect), MAX_ASPECT_SPREAD);
+    const nextSpreadY = Math.min(Math.max(1, 1 / aspect), MAX_ASPECT_SPREAD);
+    if (spreadX === nextSpreadX && spreadY === nextSpreadY) {
+      return;
+    }
+    spreadX = nextSpreadX;
+    spreadY = nextSpreadY;
+
+    // Keep marker coordinates live as the layout changes between portrait and landscape.
+    const placeNode = (id, [x, y, z]) => {
+      const position = positions.get(id);
+      position[0] = x * spreadX;
+      position[1] = y * spreadY;
+      position[2] = z;
+      return position;
+    };
+
+    let connectedRadius = layoutRadius;
+    connectedNodes.forEach((node, index) => {
+      transform.position.fromArray(placeNode(node.id, node.position));
+      transform.scale.setScalar(getNodeRadius(node));
+      transform.updateMatrix();
+      nodeMesh.setMatrixAt(index, transform.matrix);
+      connectedRadius = Math.max(connectedRadius, transform.position.length() + transform.scale.x);
+    });
+    nodeMesh.instanceMatrix.needsUpdate = true;
+    nodeMesh.boundingSphere.radius = connectedRadius;
+
+    radius = connectedRadius;
+    isolatedNodes.forEach((node, index) => {
+      const position = placeNode(node.id, isolatedPositions[index]);
+      pointPositions.set(position, index * 3);
+      radius = Math.max(radius, Math.hypot(...position) + getNodeRadius(node));
+    });
+    pointGeometry.getAttribute('position').needsUpdate = true;
+    pointGeometry.boundingSphere.radius = radius;
+
+    links.forEach(({ source, target }, index) => {
+      vertices.set(positions.get(source), index * 6);
+      vertices.set(positions.get(target), index * 6 + 3);
+    });
+    linkGeometry.getAttribute('position').needsUpdate = true;
+    linkGeometry.boundingSphere.radius = radius;
+  };
+  setAspect(aspect);
+
   return {
     scene,
     positions,
-    radius,
+    get radius() { return radius; },
     getNodeRadius,
+    setAspect,
+    getOverviewDistance(verticalFov, aspect) {
+      const verticalScale = 1 / Math.tan(verticalFov * Math.PI / 360);
+      const horizontalScale = verticalScale / aspect;
+      const horizontalRadiusScale = Math.hypot(1, horizontalScale);
+      const verticalRadiusScale = Math.hypot(1, verticalScale);
+      let distance = 2;
+      for (const node of nodes) {
+        const [x, y, z] = positions.get(node.id);
+        const size = getNodeRadius(node);
+        // Leave room for the whole sphere against each side of the camera frustum.
+        distance = Math.max(
+          distance,
+          z + Math.abs(x) * horizontalScale + size * horizontalRadiusScale,
+          z + Math.abs(y) * verticalScale + size * verticalRadiusScale,
+        );
+      }
+      return distance;
+    },
     setPixelHeight(height) {
       pointMaterial.uniforms.viewportHeight.value = height;
     },
